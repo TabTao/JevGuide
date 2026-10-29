@@ -1,4 +1,4 @@
-﻿package io.github.nisaka520.jevguide
+package io.github.nisaka520.jevguide
 
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -47,7 +47,7 @@ object ChatHttp {
         system: String,
         user: String,
         timeoutMs: Int = 30000,
-        maxTokens: Int = 900,
+        maxTokens: Int = 1600,
         temperature: Double = 0.8
     ): ChatResult {
         val messages = listOf(
@@ -69,7 +69,7 @@ object ChatHttp {
         model: String,
         messages: List<Map<String, Any?>>,
         timeoutMs: Int = 30000,
-        maxTokens: Int = 900,
+        maxTokens: Int = 1600,
         temperature: Double = 0.8
     ): ChatResult {
         // 先把"根本发不出去"的配置拦下来：这三条错误比任何 HTTP 报错都好懂
@@ -94,13 +94,36 @@ object ChatHttp {
 
         val raw = post(endpoint(baseUrl), apiKey, Json.write(payload), timeoutMs)
         if (raw is ChatResult.Err) return raw
-        val body = (raw as ChatResult.Ok).text
+        var body = (raw as ChatResult.Ok).text
 
-        val content = contentOf(body)
-            ?: return ChatResult.Err("响应里没有 choices[0].message.content（HTTP 200）：" + brief(body))
-        val text = content.trim()
-        // 空文本比报错更坑：界面上会显示成"模型什么都没说"，不如直接说清是模型返回了空的
-        return if (text.isEmpty()) ChatResult.Err("模型返回了空内容") else ChatResult.Ok(text)
+        var content = contentOf(body)
+        // 思考型模型（DeepSeek V4 / GLM 等）先烧 reasoning 再写正文，预算不够时
+        // HTTP 200、finish_reason=length、content 却是空的。这不是"模型没话说"，
+        // 是 900 的预算被思考吃光了 —— 把预算翻倍重要一次，绝大多数情况一次就好。
+        if (content.isNullOrBlank() && finishReasonOf(body) == "length") {
+            val retryTokens = (maxTokens * 2).coerceAtMost(4096)
+            if (retryTokens > maxTokens) {
+                payload["max_tokens"] = retryTokens
+                val retry = post(endpoint(baseUrl), apiKey, Json.write(payload), timeoutMs)
+                if (retry is ChatResult.Ok) {
+                    body = retry.text
+                    content = contentOf(body)
+                }
+            }
+        }
+
+        val text = content.orEmpty().trim()
+        if (text.isEmpty()) {
+            val fr = finishReasonOf(body)
+            val hint = when (fr) {
+                "length" -> "思考把 token 预算吃光了（已翻倍重试仍不够）：把超时/token 预算调大，或换一个不思考的模型"
+                "content_filter" -> "被内容过滤拦下了"
+                "" -> "响应里没有 choices[0].message.content"
+                else -> "finish_reason=$fr"
+            }
+            return ChatResult.Err("模型没给出正文：$hint｜" + brief(body))
+        }
+        return ChatResult.Ok(text)
     }
 
     /** 设置页"测试"用：极小请求，验证 base_url / key / model 三者可用 */
@@ -113,7 +136,7 @@ object ChatHttp {
             user = "回复两个字：可用",
             timeoutMs = 15000,
             // 16 对思考型模型不够（思考就吃光了，content 会是空的），给到 200
-            maxTokens = 200,
+            maxTokens = 512,
             temperature = 0.0
         )
 
@@ -178,6 +201,14 @@ object ChatHttp {
             } catch (_: Exception) {
             }
         }
+    }
+
+    /** 取 `choices[0].finish_reason`（stop / length / content_filter…）；拿不到返回空串 */
+    private fun finishReasonOf(json: String): String = try {
+        val v = Json.at(Json.parse(json), "choices.0.finish_reason")
+        if (v is String) v.trim() else ""
+    } catch (t: Throwable) {
+        ""
     }
 
     /**
