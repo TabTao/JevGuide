@@ -10,7 +10,7 @@
   主人换了服务器就改这里，或者干脆用带证书的域名。
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
+    <base-config cleartextTrafficPermitted="true" />
 
     <domain-config cleartextTrafficPermitted="true">
         <!-- v1.4.1 起不再放行任何公网 IP 的明文：http 端点=密钥与聊天内容裸奔给中间人。
