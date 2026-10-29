@@ -1,4 +1,4 @@
-﻿package io.github.nisaka520.jevguide
+package io.github.nisaka520.jevguide
 
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
@@ -21,6 +21,37 @@ object JevHttp {
 
     const val ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 
+    /**
+     * 中转站覆盖：把地址写进
+     *   /sdcard/Android/media/io.github.nisaka520.jevguide/jev_endpoint.txt
+     * 三种写法都会自动补全：
+     *   https://relay.example.com                -> https://relay.example.com/v1/systemone
+     *   https://relay.example.com/v1             -> https://relay.example.com/v1/systemone
+     *   https://relay.example.com/v1/systemone   -> 原样使用
+     * 文件不存在/读失败时回落到官方端点。
+     */
+    private fun endpoint(): String = normalizeEndpoint(readEndpointOverride())
+
+    private fun readEndpointOverride(): String = try {
+        val f = java.io.File(
+            android.os.Environment.getExternalStorageDirectory(),
+            "Android/media/io.github.nisaka520.jevguide/jev_endpoint.txt"
+        )
+        if (f.isFile) f.readText().trim() else ""
+    } catch (t: Throwable) {
+        ""
+    }
+
+    internal fun normalizeEndpoint(raw: String): String {
+        val s = raw.trim().trimEnd('/')
+        if (s.isEmpty()) return ENDPOINT
+        return when {
+            s.endsWith("/systemone") -> s
+            s.endsWith("/v1") -> "$s/systemone"
+            else -> "$s/v1/systemone"
+        }
+    }
+
     fun analyze(apiKey: String, requestBody: String, timeoutMs: Int = 25000): JevResult =
         post(apiKey, requestBody, timeoutMs)
 
@@ -42,7 +73,7 @@ object JevHttp {
     private fun post(apiKey: String, body: String, timeoutMs: Int): JevResult {
         var conn: HttpURLConnection? = null
         return try {
-            conn = (URL(ENDPOINT).openConnection() as HttpsURLConnection).apply {
+            conn = (URL(endpoint()).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = timeoutMs
                 readTimeout = timeoutMs
