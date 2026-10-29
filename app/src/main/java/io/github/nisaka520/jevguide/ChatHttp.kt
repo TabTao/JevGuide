@@ -23,6 +23,15 @@ sealed class ChatResult {
 object ChatHttp {
 
     /**
+     * opencode.ai 的 /inference 网关要求两个额外请求头，否则直接 400：
+     *  - `x-opencode-session`：每次对话一个稳定的会话 id（只用于路由和提示缓存，不含聊天内容）
+     *  - `User-Agent`：必须自报家门，默认的 `Dalvik/…` 会被当成通用 HTTP 库
+     * 见 https://opencode.ai/v2/docs/console/go/#where-can-i-use-it
+     */
+    private val SESSION_ID: String = java.util.UUID.randomUUID().toString()
+    private const val USER_AGENT = "JevGuide/1.4.0"
+
+    /**
      * 发一次 chat 补全请求，成功时返回模型文本（已 trim）。
      *
      * ⚠ base_url **要填到 /v1 或 /v4**，例如 `https://open.bigmodel.cn/api/paas/v4`（智谱是 /v4）
@@ -146,6 +155,9 @@ object ChatHttp {
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("Authorization", "Bearer $apiKey")
                 setRequestProperty("Accept", "application/json")
+                // opencode.ai 网关要求：会话 id + 自报 User-Agent（默认 Dalvik/… 会被 400 MissingSessionID 或降级）
+                setRequestProperty("x-opencode-session", SESSION_ID)
+                setRequestProperty("User-Agent", USER_AGENT)
             }
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
             val code = conn.responseCode

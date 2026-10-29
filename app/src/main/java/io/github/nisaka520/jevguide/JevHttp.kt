@@ -81,6 +81,8 @@ object JevHttp {
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("Authorization", "Bearer $apiKey")
                 setRequestProperty("Accept", "application/json")
+                // 自报家门：opencode.ai 网关会把默认的 Dalvik/… 当成通用 HTTP 库
+                setRequestProperty("User-Agent", "JevGuide/1.4.0")
             }
             OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
             val code = conn.responseCode
