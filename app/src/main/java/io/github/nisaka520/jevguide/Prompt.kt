@@ -15,7 +15,8 @@ object Prompt {
     val LANGS = listOf("zh", "mix", "en")
     val LANG_LABELS = listOf("zh 中文（默认，客观分最高）", "mix 英文提问+中文选项（与 zh 95% 一致）", "en 全英文（置信度更高但标签会漂）")
 
-    val MODELS = listOf("jev-latest", "jev-1.13.0")
+    // 中转站模型名以 jev-1.13 为准（官方是 jev-latest / jev-1.13.0，放前面当默认）
+    val MODELS = listOf("jev-1.13", "jev-latest", "jev-1.13.0")
 
     val EMOTIONS = listOf("平静", "高兴", "不满", "生气", "焦虑", "着急", "难过", "讽刺", "客套")
     val INTENTS = listOf(
