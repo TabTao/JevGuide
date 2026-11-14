@@ -328,7 +328,16 @@ class WatchService : AccessibilityService() {
                 AppLog.add("视觉读屏：标题=「${d.title}」读到 ${d.msgs.size} 条（对方 ${d.msgs.count { !it.mine }} 条）")
                 // 自动模式下同一屏不重判（手动点的不拦 —— 用户点了就得给结果）
                 if (manual || markAutoSeen(d.title, d.latestPeerMessage()?.text)) {
-                    Analyzer.run(this, d, manual)
+                    // 视觉模式也给「2 点选择」：识别结果不止一条时可判哪些，用户自己点
+                    if (manual && d.msgs.count { !it.mine } >= 2) {
+                        MsgPicker.pending = d
+                        startActivity(
+                            android.content.Intent(this, MsgPickerActivity::class.java)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } else {
+                        Analyzer.run(this, d, manual)
+                    }
                 } else {
                     AppLog.add("自动模式：视觉读到的还是同一屏，跳过")
                 }
