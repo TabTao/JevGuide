@@ -84,4 +84,16 @@ class MemoryReducerTest {
         assertTrue(MemoryReducer.similarity("明天下午三点老地方见", "明天下午三点老地方現") > 0.85)
         assertTrue(MemoryReducer.similarity("明天下午三点", "完全不同的一句子") < 0.3)
     }
+
+    @Test
+    fun `老版本记忆文件缺少新字段也能读 且默认 live`() {
+        val v1 = """{"v":1,"key":"k","name":"n","relation":"","summary":"","facts":[],"scores":[],
+            "turns":[{"ts":1,"mine":false,"text":"旧消息"}],"updatedAt":0}""".trimIndent()
+        val mem = Memories.fromJson("k", "n", v1)
+        assertEquals(1, mem.turns.size)
+        assertEquals("旧消息", mem.turns[0].text)
+        assertEquals(TurnSource.LIVE, mem.turns[0].source)
+        assertEquals(null, mem.turns[0].sender)
+        assertTrue(!mem.turns[0].approx)
+    }
 }
