@@ -25,6 +25,17 @@ object MemoryReducer {
     /** 太短的消息（"好"、"嗯"）不做近似匹配，否则会把真·连发吃掉 */
     private const val MIN_FUZZY_LEN = 6
 
+    private val RE_DIGITS = Regex("""\d+""")
+
+    /**
+     * 数字必须完全一致才允许近似匹配。
+     * 真实反例：「第 0 句内容」vs「第 1 句内容」相似度 0.875，只差一个数字但是两条不同消息。
+     * OCR 错字几乎都发生在汉字上，把数字钉死不会伤到容错。
+     */
+    private fun sameDigits(a: String, b: String): Boolean =
+        RE_DIGITS.findAll(a).joinToString(",") { it.value } ==
+            RE_DIGITS.findAll(b).joinToString(",") { it.value }
+
     private fun rank(s: TurnSource): Int = when (s) {
         TurnSource.EXPORT -> 3
         TurnSource.OCR -> 2
@@ -84,6 +95,7 @@ object MemoryReducer {
 
         if (!bothTimed || !near) return false
         if (na.length < MIN_FUZZY_LEN || nb.length < MIN_FUZZY_LEN) return false
+        if (!sameDigits(na, nb)) return false
         return similarity(na, nb) >= SIMILARITY
     }
 

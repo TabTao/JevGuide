@@ -28,7 +28,8 @@ class MemoryReducerTest {
         val once = MemoryReducer.merge(emptyList(), batch)
         val twice = MemoryReducer.merge(once, batch)
         assertEquals(once.size, twice.size)
-        assertEquals(listOf("第二句", "第一句"), twice.map { it.text })
+        // merge 会按时间排序，所以顺序是"第一句 → 第二句"
+        assertEquals(listOf("第一句", "第二句"), twice.map { it.text })
     }
 
     @Test
