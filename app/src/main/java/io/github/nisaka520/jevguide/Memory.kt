@@ -22,12 +22,33 @@ import java.util.Locale
  * 数据形态与 [Digest.ScreenMsg] 对齐：[Turn.mine] 与 `ScreenMsg.mine` 是同一个意思
  * （true = 我发的），这样抓屏结果能直接灌进来，不用再做一层翻译。
  */
+/** 一条对话轮次的来源：导出（最可信）> 截图识别 > 实时抓屏 */
+enum class TurnSource(val wire: String) {
+    EXPORT("export"),
+    OCR("ocr"),
+    LIVE("live");
+
+    companion object {
+        fun of(wire: String?): TurnSource = when (wire) {
+            "export" -> EXPORT
+            "ocr" -> OCR
+            else -> LIVE
+        }
+    }
+}
+
 data class Turn(
-    /** 时间戳（毫秒） */
+    /** 时间戳（毫秒）；[approx] 为 true 时是推算值 */
     val ts: Long,
     /** true = 我发的（与 ScreenMsg.mine 同义） */
     val mine: Boolean,
-    val text: String
+    val text: String,
+    /** 群聊里的发送者昵称；单聊或抓屏可空 */
+    val sender: String? = null,
+    /** 这条记录从哪来，决定去重时谁优先 */
+    val source: TurnSource = TurnSource.LIVE,
+    /** 时间是否为推算（长截图没有逐条时间） */
+    val approx: Boolean = false
 )
 
 /** 一条关键事实（ts 是**第一次**记下它的时间，不是每次重写的时间） */
@@ -205,7 +226,7 @@ internal fun appendTurnsDedup(existing: List<Turn>, incoming: List<Turn>): List<
         val text = t.text.trim()
         val last = out.lastOrNull()
         if (last != null && last.mine == t.mine && last.text.trim() == text) continue
-        out.add(Turn(t.ts, t.mine, text))
+        out.add(t.copy(text = text))
     }
     return trimTurns(out)
 }
@@ -523,7 +544,16 @@ object Memories {
         m["summary"] = mem.summary
         m["facts"] = mem.facts.map { mapOf("text" to it.text, "ts" to it.ts) }
         m["scores"] = mem.scores.map { mapOf("ts" to it.ts, "score" to it.score, "note" to it.note) }
-        m["turns"] = mem.turns.map { mapOf("ts" to it.ts, "mine" to it.mine, "text" to it.text) }
+        m["turns"] = mem.turns.map {
+            mapOf(
+                "ts" to it.ts,
+                "mine" to it.mine,
+                "text" to it.text,
+                "sender" to it.sender,
+                "src" to it.source.wire,
+                "approx" to it.approx
+            )
+        }
         m["updatedAt"] = mem.updatedAt
         m["turnsAtSummary"] = mem.turnsAtSummary
         return Json.write(m)
@@ -563,7 +593,14 @@ object Memories {
         val turns = Json.list(m["turns"]).mapNotNull { item ->
             val o = Json.obj(item)
             val t = textOf(o["text"]).trim()
-            if (t.isEmpty()) null else Turn(Json.num(o["ts"])?.toLong() ?: 0L, boolOf(o["mine"]), t)
+            if (t.isEmpty()) null else Turn(
+                Json.num(o["ts"])?.toLong() ?: 0L,
+                boolOf(o["mine"]),
+                t,
+                textOf(o["sender"]).ifEmpty { null },
+                TurnSource.of(textOf(o["src"]).ifEmpty { null }),
+                boolOf(o["approx"])
+            )
         }
 
         return ContactMemory(
