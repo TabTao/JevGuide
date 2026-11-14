@@ -15,7 +15,14 @@ data class Contact(
     val names: List<String>,
     val relation: String,
     val sex: String,
-    val note: String = ""
+    val note: String = "",
+    /**
+     * 发展关系：想和对方往哪个方向走（可空）。
+     *
+     * 只影响**回复文案**，不参与意图判定 —— 判定要的是"这句话什么意思"，
+     * 掺进主观目标只会让结论跑偏。空串 = 无要求，回复走通用的稳妥/推进/有趣。
+     */
+    val developGoal: String = ""
 ) {
     val display: String get() = names.firstOrNull().orEmpty().ifEmpty { "(未命名)" }
 
@@ -78,7 +85,17 @@ object Contacts {
     }
 
     fun toJson(contacts: List<Contact>): String =
-        Json.write(contacts.map { mapOf("names" to it.names, "relation" to it.relation, "sex" to it.sex, "note" to it.note) })
+        Json.write(
+            contacts.map {
+                mapOf(
+                    "names" to it.names,
+                    "relation" to it.relation,
+                    "sex" to it.sex,
+                    "note" to it.note,
+                    "goal" to it.developGoal
+                )
+            }
+        )
 
     fun fromJson(text: String): List<Contact> {
         val arr = Json.list(Json.parse(text))
@@ -92,7 +109,8 @@ object Contacts {
                 names = names,
                 relation = if (rel in RELATIONS) rel else "普通朋友",
                 sex = if (sex in SEXES) sex else "未知",
-                note = Json.str(m["note"])
+                note = Json.str(m["note"]),
+                developGoal = Json.str(m["goal"])
             )
         }
     }

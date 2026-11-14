@@ -362,6 +362,23 @@ object Memories {
     }
 
     /**
+     * 导入一批聊天记录（信封导出 / 截图识别），走 [MemoryReducer] 的确定性归并。
+     *
+     * 和 [appendTurns] 的区别：那个只处理"整屏重复"的追加，导入是**任意区间**的重叠，
+     * 必须按内容+时间做同一性判断，否则同一段历史会被记两遍、把 40 条上限吃光。
+     */
+    @Synchronized
+    fun importTurns(ctx: Context, key: String, name: String, incoming: List<Turn>): ContactMemory {
+        val cur = load(ctx, key, name)
+        val merged = MemoryReducer.merge(cur.turns, incoming, MAX_TURNS)
+        val newName = name.ifEmpty { cur.name }
+        if (merged == cur.turns && newName == cur.name) return cur
+        val mem = cur.copy(name = newName, turns = merged, updatedAt = System.currentTimeMillis())
+        save(ctx, mem)
+        return mem
+    }
+
+    /**
      * 追加对话轮次（去重 + 截断）。内容没变化时**不写盘** ——
      * 自动模式每次抓屏都会调它，一屏没动还去写文件纯属浪费电。
      */

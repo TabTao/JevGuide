@@ -74,6 +74,17 @@ class ContactsTest {
     }
 
     @Test
+    fun developGoalRoundTripsAndDefaultsToEmpty() {
+        val withGoal = Contact(listOf("小红"), "情侣", "女", "", "想确定关系")
+        val back = Contacts.fromJson(Contacts.toJson(listOf(withGoal)))
+        assertEquals("想确定关系", back[0].developGoal)
+
+        // 老文件没有 goal 字段：读出来是空串（无要求），不是 null
+        val old = Contacts.fromJson("""[{"names":["甲"],"relation":"同事","sex":"男"}]""")
+        assertEquals("", old[0].developGoal)
+    }
+
+    @Test
     fun fallbackUsesTheTitle() {
         val f = Contacts.fallback("张三")
         assertEquals("张三", f.display)

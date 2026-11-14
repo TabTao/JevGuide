@@ -227,6 +227,17 @@ class Config(ctx: Context) {
         get() = sp.getString("last_contact_name", "").orEmpty()
         set(v) = sp.edit().putString("last_contact_name", v).apply()
 
+    /**
+     * 我的微信昵称：导入聊天记录时用来判「哪句是我说的」。
+     *
+     * 为什么不让它自动猜：导出的头部是「<对方> 和 <我>」，顺序会随版本变，
+     * 猜错就会把「我」的消息全标成对方 —— 记忆里 mine 一错，回复建议就全歪。
+     * 所以让用户填一次，导入页也能当场改。
+     */
+    var myNickname: String
+        get() = sp.getString("my_nickname", "").orEmpty()
+        set(v) = sp.edit().putString("my_nickname", v).apply()
+
     /** 浮层上最近显示的文字与分数：服务重启后照原样恢复，不用等下次判读 */
     var lastOverlayText: String
         get() = sp.getString("last_overlay_text", "").orEmpty()
