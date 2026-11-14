@@ -333,7 +333,7 @@ object ScoreOverlay {
             val payload = lastPayload
             if (payload == null) {
                 Toast3.toast(service, "还没有结果，先识别一次")
-                analyzeNow()
+                pickNow()
                 return
             }
             if (!ResultActivity.show(service, payload)) {
