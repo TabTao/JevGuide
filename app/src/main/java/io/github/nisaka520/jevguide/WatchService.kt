@@ -1,4 +1,4 @@
-﻿package io.github.nisaka520.jevguide
+package io.github.nisaka520.jevguide
 
 import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
@@ -237,6 +237,7 @@ class WatchService : AccessibilityService() {
                     return
                 }
                 if (d.latestPeerMessage() != null) {
+                    cfg.lastReadSource = "a11y"
                     Analyzer.run(this, d, manual)
                     return
                 }
@@ -246,6 +247,43 @@ class WatchService : AccessibilityService() {
         }
     }
 
+    /**
+     * 悬浮条「识别」键：抓一屏 → 弹消息列表 → 用户点哪条就判哪条。
+     *
+     * 为什么不直接判最后一条：一屏能读到 8~12 条，最后一条对方消息经常不是用户关心的那条；
+     * 让用户点一下，目标精确、上下文仍来自可见对话，也不用做滚动采集。
+     * 只有一条可判时跳过列表，少一次点击。
+     */
+    fun analyzeWithPick(manual: Boolean = true) {
+        if (Analyzer.busy()) {
+            android.widget.Toast.makeText(
+                this, "上一次还在判读，等这次出结果再点", android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        val cfg = Config(this)
+        val d = WeChatReader.capture(this, cfg.linkQuotes)
+        if (d == null) {
+            if (manual) Toast3.toast(this, "现在的前台不是微信")
+            return
+        }
+        if (d.latestPeerMessage() == null) {
+            // 无障碍树里没有对方消息（例如这版微信屏蔽了树）→ 交给原来的 auto/vision 流程
+            analyzeNow(manual)
+            return
+        }
+        cfg.lastReadSource = "a11y"
+        if (d.msgs.count { !it.mine } <= 1) {
+            Analyzer.run(this, d, manual)
+            return
+        }
+        MsgPicker.pending = d
+        startActivity(
+            android.content.Intent(this, MsgPickerActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+
     /** 老路子：从无障碍树读 */
     private fun analyzeByTree(cfg: Config, manual: Boolean) {
         val d = WeChatReader.capture(this, cfg.linkQuotes)
@@ -253,6 +291,7 @@ class WatchService : AccessibilityService() {
             if (manual) Toast3.toast(this, "现在的前台不是微信")
             return
         }
+        cfg.lastReadSource = "a11y"
         Analyzer.run(this, d, manual)
     }
 
@@ -285,6 +324,7 @@ class WatchService : AccessibilityService() {
                 AppLog.add("视觉读屏失败：" + (err ?: "未知原因"))
                 Toast3.toast(this, err ?: "视觉读屏失败", true)
             } else {
+                cfg.lastReadSource = "vision"
                 AppLog.add("视觉读屏：标题=「${d.title}」读到 ${d.msgs.size} 条（对方 ${d.msgs.count { !it.mine }} 条）")
                 // 自动模式下同一屏不重判（手动点的不拦 —— 用户点了就得给结果）
                 if (manual || markAutoSeen(d.title, d.latestPeerMessage()?.text)) {

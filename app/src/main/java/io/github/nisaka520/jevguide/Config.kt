@@ -1,4 +1,4 @@
-﻿package io.github.nisaka520.jevguide
+package io.github.nisaka520.jevguide
 
 import android.content.Context
 
@@ -237,6 +237,14 @@ class Config(ctx: Context) {
     var myNickname: String
         get() = sp.getString("my_nickname", "").orEmpty()
         set(v) = sp.edit().putString("my_nickname", v).apply()
+
+    /**
+     * 最近一次识别用的是哪条路："" = 还没有过，a11y = 无障碍树，vision = 截图识别。
+     * 浮条上的识别图标按它上色（绿/黄/灰），这样不用多写一行字也能看出数据从哪来。
+     */
+    var lastReadSource: String
+        get() = sp.getString("last_read_source", "").orEmpty()
+        set(v) = sp.edit().putString("last_read_source", v).apply()
 
     /** 浮层上最近显示的文字与分数：服务重启后照原样恢复，不用等下次判读 */
     var lastOverlayText: String

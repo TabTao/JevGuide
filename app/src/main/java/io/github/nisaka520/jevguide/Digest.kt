@@ -11,7 +11,7 @@ data class ScreenMsg(val mine: Boolean, val text: String, val quoted: String? = 
 val GROUP_SUFFIX = Regex("""[(（]\s*\d+\s*[/／]?\s*\d*\s*[)）]\s*$""")
 
 /** 一次抓屏的结果：会话标题 + 可见消息（按屏幕顺序，旧 → 新） */
-data class Digest(val title: String, val msgs: List<ScreenMsg>) {
+data class Digest(val title: String, val msgs: List<ScreenMsg>, val fromVision: Boolean = false) {
 
     /** 单聊时标题就是对方昵称；群聊标题带人数后缀 */
     val peer: String get() = title
@@ -25,8 +25,8 @@ data class Digest(val title: String, val msgs: List<ScreenMsg>) {
      * 拼请求用的 state。键名与插件版 JevIntent 完全一致
      * （关系 / 对方性别 / 会话类型 / 最近对话 / 待分析消息），这样两版结论可比。
      */
-    fun state(contact: Contact, maxCtx: Int, extra: String = ""): String {
-        val target = latestPeerMessage() ?: return ""
+    fun state(contact: Contact, maxCtx: Int, extra: String = "", targetOverride: ScreenMsg? = null): String {
+        val target = targetOverride ?: latestPeerMessage() ?: return ""
         val ctx = msgs.takeWhile { it !== target }.takeLast(maxCtx)
             .map { (if (it.mine) "我：" else "对方：") + it.text + (it.quoted?.let { q -> "（引用：" + q + "）" } ?: "") }
         val m = LinkedHashMap<String, Any?>()

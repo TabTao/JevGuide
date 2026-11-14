@@ -1,4 +1,4 @@
-﻿package io.github.nisaka520.jevguide
+package io.github.nisaka520.jevguide
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -23,7 +23,7 @@ object Analyzer {
     private val pool = Executors.newSingleThreadExecutor { r -> Thread(r, "jev-analyze") }
     private val running = AtomicBoolean(false)
 
-    fun run(ctx: Context, digest: Digest, manual: Boolean = true) {
+    fun run(ctx: Context, digest: Digest, manual: Boolean = true, targetIndex: Int = -1) {
         val cfg = Config(ctx)
         if (!cfg.hasKey()) {
             Toast3.toast(ctx, "还没填 Jev 接口密钥：打开「弦外之音」设置 → 接口密钥", true)
@@ -35,7 +35,7 @@ object Analyzer {
             return
         }
 
-        val target = digest.latestPeerMessage()
+        val target = digest.msgs.getOrNull(targetIndex) ?: digest.latestPeerMessage()
         if (target == null) {
             running.set(false)
             if (manual) {
@@ -69,7 +69,7 @@ object Analyzer {
         val memBlock = if (memoryOn) Memories.contextBlock(mem) else ""
         val lastScore = mem.scores.firstOrNull()?.score
 
-        val state = digest.state(contact, cfg.contextN, memBlock)
+        val state = digest.state(contact, cfg.contextN, memBlock, target)
         if (state.isEmpty()) {
             running.set(false)
             Toast3.toast(ctx, "没拼出可判读的内容", true)

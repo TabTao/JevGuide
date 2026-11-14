@@ -1,4 +1,4 @@
-﻿package io.github.nisaka520.jevguide
+package io.github.nisaka520.jevguide
 
 import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
@@ -213,7 +213,7 @@ object VisionReader {
             if (text.isEmpty()) null else ScreenMsg(truthy(o["mine"]), ScreenRules.clean(text))
         }
         if (title.isEmpty() && msgs.isEmpty()) return null
-        return Digest(title, msgs)
+        return Digest(title, msgs, fromVision = true)
     }
 
     /** 从一堆废话里抠出 JSON 对象：优先 ``` 块，其次第一个 { 到最后一个 } */

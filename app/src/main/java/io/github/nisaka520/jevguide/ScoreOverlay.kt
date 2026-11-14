@@ -1,4 +1,4 @@
-﻿package io.github.nisaka520.jevguide
+package io.github.nisaka520.jevguide
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
@@ -53,6 +53,7 @@ object ScoreOverlay {
     private var root: LinearLayout? = null
     private var label: TextView? = null
     private var ring: View? = null
+    private var iconView: ImageView? = null
     private var wm: WindowManager? = null
     private var params: WindowManager.LayoutParams? = null
 
@@ -110,6 +111,16 @@ object ScoreOverlay {
         else -> 0xFFE57373.toInt()
     }
 
+    /**
+     * 识别来源 → 图标颜色：绿 = 无障碍树，黄 = 截图识别，灰 = 还没读过。
+     * 用颜色而不是多一行字，是因为浮条就那么大，多一行会把聊天内容顶走。
+     */
+    private fun sourceColor(cfg: Config): Int = when (cfg.lastReadSource) {
+        "a11y" -> 0xFF2ECC71.toInt()
+        "vision" -> 0xFFF5A623.toInt()
+        else -> 0xFF8A8A8A.toInt()
+    }
+
     /** 显示或更新（已经在就只改文字与颜色） */
     fun show(service: AccessibilityService, cfg: Config, text: String, percent: Int?) {
         if (!cfg.overlayEnabled || suppressed) return
@@ -123,6 +134,7 @@ object ScoreOverlay {
             if (existing != null) {
                 existing.text = text
                 existing.setTextColor(colorOf(percent))
+                iconView?.imageTintList = android.content.res.ColorStateList.valueOf(sourceColor(cfg))
                 ring?.background = ringDrawable(service, percent)
                 // 轻微「弹一下」：分数变了要能被余光捕捉到，又不能闪得烦人
                 root?.let { b ->
@@ -171,9 +183,10 @@ object ScoreOverlay {
             }
             val icon = ImageView(themed).apply {
                 setImageResource(R.drawable.ic_scan)
-                imageTintList = android.content.res.ColorStateList.valueOf(colorOf(percent))
+                imageTintList = android.content.res.ColorStateList.valueOf(sourceColor(cfg))
                 layoutParams = LinearLayout.LayoutParams(dp(service, 20), dp(service, 20))
             }
+            iconView = icon
             val box = LinearLayout(themed).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -304,7 +317,7 @@ object ScoreOverlay {
                         // 用坐标分区、而不是给子 View 挂点击：子 View 一旦可点就会吃掉事件，
                         // 那样连拖动都没法从图标上起手了。
                         val rightZone = v.width - dp(service, 52)
-                        if (e.x >= rightZone) analyzeNow() else openResult()
+                        if (e.x >= rightZone) pickNow() else openResult()
                     } else if (dragged) {
                         cfg.overlayX = p.x
                         cfg.overlayY = p.y
@@ -334,14 +347,18 @@ object ScoreOverlay {
          * 这个入口必须**与有没有结果无关** —— 之前整颗胶囊读过一次就只剩
          * "打开结果页"一个动作，于是想再读的人找不到路。
          */
-        private fun analyzeNow() {
+        /**
+         * 右区「识别」键：抓一屏 → 弹消息列表 → 用户点哪条就判哪条。
+         * 只有一条可判时自动跳过列表（少一次点击）。
+         */
+        private fun pickNow() {
             val svc = WatchService.instance
             if (svc == null) {
                 Toast3.toast(service, "无障碍服务没在运行", true)
                 return
             }
             Toast3.toast(service, "开始识别…")
-            svc.analyzeNow(true)
+            svc.analyzeWithPick(true)
         }
     }
 
